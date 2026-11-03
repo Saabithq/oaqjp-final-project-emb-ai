@@ -1,36 +1,47 @@
 
-import requests
-import json
+from flask import Flask, render_template, request
+from EmotionDetection.emotion_detection import emotion_detector
 
-def sentiment_analyzer(text_to_analyze):
-    # Define the URL for the sentiment analysis API
-    url = 'https://sn-watson-emotion.labs.skills.network/v1/watson.runtime.nlp.v1/NlpService/EmotionPredict'
+app = Flask(__name__)
 
-    # Create the payload with the text to be analyzed
-    myobj = { "raw_document": { "text": text_to_analyze } }
 
-    # Set the headers with the required model ID for the API
-    header = {"grpc-metadata-mm-model-id": "emotion_aggregated-workflow_lang_en_stock"}
+@app.route("/")
+def render_index_page():
+    return render_template('index.html')
 
-    # Make a POST request to the API with the payload and headers
-    response = requests.post(url, json = myobj, headers=header)
-    formatted_response = json.loads(response.text)
-    emotions = formatted_response['emotionPredictions'][0]['emotion']
 
-    anger_score = emotions['anger']
-    disgust_score = emotions['disgust']
-    fear_score = emotions['fear']
-    joy_score = emotions['joy']
-    sadness_score = emotions['sadness']
+@app.route("/emotionDetector")
+def RunSentimentAnalysis():
 
-    dominant_emotion = max(emotions, key=emotions.get)
+    # Retrieve the text to analyze from the request arguments
+    text_to_analyze = request.args.get('textToAnalyze')
 
-    return {
-        'anger': anger_score,
-        'disgust': disgust_score,
-        'fear': fear_score,
-        'joy': joy_score,
-        'sadness': sadness_score,
-        'dominant_emotion': dominant_emotion
-    }
+    # Pass the text to the emotion detector
+    response = emotion_detector(text_to_analyze)
 
+    # Check if dominant emotion is None
+    if response['dominant_emotion'] is None:
+        return "Invalid text! Please try again!"
+
+    # Extract emotion scores
+    anger = response['anger']
+    disgust = response['disgust']
+    fear = response['fear']
+    joy = response['joy']
+    sadness = response['sadness']
+
+    # Extract dominant emotion
+    dominant_emotion = response['dominant_emotion']
+
+    # Return formatted response
+    return (
+        f"For the given statement, the system response is "
+        f"'anger': {anger}, 'disgust': {disgust}, "
+        f"'fear': {fear}, 'joy': {joy} and "
+        f"'sadness': {sadness}. "
+        f"The dominant emotion is {dominant_emotion}."
+    )
+
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=6000, debug=True)
